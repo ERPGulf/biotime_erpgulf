@@ -147,6 +147,11 @@ app_license = "mit"
 
 # Scheduled Tasks
 # ---------------
+scheduler_events = {
+    "hourly": [
+        "biotime_erpgulf.attendance.sync_biotime_attendance"
+    ]
+}
 
 # scheduler_events = {
 # 	"all": [
@@ -165,6 +170,8 @@ app_license = "mit"
 # 		"biotime_erpgulf.tasks.monthly"
 # 	],
 # }
+
+
 
 # Testing
 # -------
@@ -241,4 +248,10 @@ app_license = "mit"
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
+fixtures = [
+    {"dt": "BioTime Settings"}
+]
 
+# fixtures = [
+#     {"dt": "BioTime Settings", "filters": {"module": "biotime_erpgulf"}},
+# ]

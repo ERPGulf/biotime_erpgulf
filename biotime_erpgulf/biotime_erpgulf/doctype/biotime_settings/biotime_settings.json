@@ -1,0 +1,48 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-31 11:46:35.734533",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "biotime_url",
+  "biotime_token"
+ ],
+ "fields": [
+  {
+   "fieldname": "biotime_url",
+   "fieldtype": "Data",
+   "label": "BioTime URL"
+  },
+  {
+   "fieldname": "biotime_token",
+   "fieldtype": "Data",
+   "label": "BioTime Token"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-08-31 11:48:43.282474",
+ "modified_by": "Administrator",
+ "module": "biotime_erpgulf",
+ "name": "BioTime Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
