@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["hrms"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/biotime_erpgulf/css/biotime_erpgulf.css"
-# app_include_js = "/assets/biotime_erpgulf/js/biotime_erpgulf.js"
+# app_include_js = "/assets/biotime_erpgulf/js/employee_checkin.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/biotime_erpgulf/css/biotime_erpgulf.css"
@@ -47,6 +47,10 @@ app_license = "mit"
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+doctype_list_js = {
+    "Employee Checkin": "public/js/employee_checkin.js"
+}
+
 
 # Svg Icons
 # ------------------

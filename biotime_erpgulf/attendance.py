@@ -2,6 +2,7 @@ import requests
 import frappe
 from dateutil.parser import parse
 
+@frappe.whitelist()
 def sync_biotime_attendance():
     frappe.log_error("BioTime Sync function called", "BioTime Debug")
 
