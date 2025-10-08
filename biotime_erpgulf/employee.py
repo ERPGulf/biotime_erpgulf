@@ -2,10 +2,8 @@ import frappe
 import requests
 from frappe.utils import getdate, nowdate
 
-
 def execute():
     sync_biotime_employees()
-
 
 @frappe.whitelist()
 def sync_biotime_employees():
@@ -30,21 +28,26 @@ def sync_biotime_employees():
         emp_type_map = {1: "Full-time", 2: "Part-time", 3: "Contract"}
         gender_map = {"M": "Male", "F": "Female"}
 
+        default_company = frappe.db.get_single_value("Global Defaults", "default_company")
+
         for emp in employees:
             emp_code = emp.get("emp_code")
             if not emp_code:
                 continue
 
-            first_name = emp.get("first_name", "")
+            first_name = emp.get("first_name") or ""
             last_name = emp.get("last_name") or ""
             full_name = f"{first_name} {last_name}".strip()
             gender = gender_map.get(emp.get("gender"), "")
             employment_type = emp_type_map.get(emp.get("emp_type"))
-            hire_date = emp.get("hire_date") or None
-            birthday = emp.get("birthday") or None
+            hire_date = emp.get("hire_date")
+            birthday = emp.get("birthday")
 
             department = emp.get("department", {}).get("dept_name") if emp.get("department") else ""
             designation = emp.get("position", {}).get("position_name") if emp.get("position") else ""
+            mobile_no = emp.get("mobile") or ""
+            current_address = emp.get("address") or ""
+            personal_email = emp.get("email") or ""
 
             if emp.get("attemployee", {}).get("enable_attendance") is False:
                 erp_status = "Left"
@@ -52,9 +55,6 @@ def sync_biotime_employees():
             else:
                 erp_status = "Active"
                 relieving_date = None
-
-
-            default_company = frappe.db.get_single_value("Global Defaults", "default_company")
 
             employee_doc = {
                 "doctype": "Employee",
@@ -67,12 +67,10 @@ def sync_biotime_employees():
                 "department": department,
                 "designation": designation,
                 "employment_type": employment_type,
-                "prefered_contact_email": emp.get("email") or "",
-                "mobile_no": emp.get("mobile") or "",
-                "nationality": emp.get("national") or "",
-                # "company": "Harsha2",
+                "cell_number": mobile_no,
+                "current_address": current_address,
+                "personal_email": personal_email,
                 "company": default_company,
-                # "salary_currency": "SAR",
                 "status": erp_status,
                 "relieving_date": relieving_date,   
                 "naming_series": "HR-EMP-",
