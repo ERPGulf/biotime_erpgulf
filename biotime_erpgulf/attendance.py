@@ -1,90 +1,199 @@
 import requests
 import frappe
-from dateutil.parser import parse
+from datetime import datetime, timedelta
+from collections import defaultdict
+from frappe.utils import get_datetime, get_time
+from dateutil import parser
+import pytz
+
+def time_diff_in_minutes(time1, time2):
+    """Return absolute difference in minutes between two time/datetime objects"""
+    if isinstance(time1, datetime) and isinstance(time2, datetime):
+        diff = abs((time1 - time2).total_seconds())
+    else:
+        dt1 = datetime.combine(datetime.today(), time1)
+        dt2 = datetime.combine(datetime.today(), time2)
+        diff = abs((dt1 - dt2).total_seconds())
+    return diff / 60
+
+def get_shift_info(employee):
+    """Return latest shift_type and shift_location for employee"""
+    sa = frappe.get_all(
+        "Shift Assignment",
+        filters=[["employee", "=", employee], ["docstatus", "=", 1]],
+        fields=["shift_type", "shift_location"],
+        order_by="start_date desc",
+        limit=1
+    )
+    if sa:
+        return sa[0].shift_type, sa[0].shift_location
+    return frappe.db.get_value("Employee", employee, "default_shift"), None
+
+def get_shift_tz_for_location(shift_location):
+    if shift_location == "Beirut, Lebanon":
+        return pytz.timezone("Asia/Beirut")
+    elif shift_location == "Riyadh, Saudi Arabia":
+        return pytz.timezone("Asia/Riyadh")
+    return pytz.UTC
+
+def get_log_type(employee, punch_time, punch_state_display):
+    """Determine log type (IN, OUT, Late Entry, Early Exit) considering shift location"""
+    punch_dt = get_datetime(punch_time)
+
+    shift_type, shift_location = get_shift_info(employee)
+    if not shift_type:
+        return "IN" if punch_state_display == "Check In" else "OUT"
+
+    shift_doc = frappe.get_doc("Shift Type", shift_type)
+    start_time = get_time(shift_doc.start_time)
+    end_time = get_time(shift_doc.end_time)
+    late_grace = int(shift_doc.late_entry_grace_period or 0)
+    early_grace = int(shift_doc.early_exit_grace_period or 0)
+
+    tz = get_shift_tz_for_location(shift_location)
+    if punch_dt.tzinfo is None:
+        punch_dt = tz.localize(punch_dt)
+    else:
+        punch_dt = punch_dt.astimezone(tz)
+
+    punch_time_only = punch_dt.time()
+
+    if punch_state_display == "Check In":
+        diff = time_diff_in_minutes(punch_time_only, start_time)
+        if punch_time_only > start_time and diff > late_grace:
+            return "Late Entry"
+        return "IN"
+    elif punch_state_display == "Check Out":
+        diff = time_diff_in_minutes(end_time, punch_time_only)
+        if punch_time_only < end_time and diff > early_grace:
+            return "Early Exit"
+        return "OUT"
+    return "IN"
 
 @frappe.whitelist()
-def sync_biotime_attendance():
-    frappe.log_error("BioTime Sync function called", "BioTime Debug")
+def biotime_attendance():
+    frappe.msgprint("BioTime Syncing")
+    settings = frappe.get_single("BioTime Settings")
+    url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
+    token = settings.biotime_token
 
-    try:
-        settings = frappe.get_single("BioTime Settings")
-        url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
-        token = settings.biotime_token
+    headers = {
+        "Authorization": f"Token {token}",
+        "Content-Type": "application/json"
+    }
 
-        headers = {
-            "Authorization": f"Token {token}",
-            "Content-Type": "application/json"
-        }
-        frappe.log_error(f"Fetching BioTime data from URL: {url}", "BioTime Debug")
+    inserted_count = 0
+    skipped_count = 0
+    employee_punches = defaultdict(lambda: {"Check In": [], "Check Out": []})
+    shift_tz_cache = {}
 
-        resp = requests.get(url, headers=headers, timeout=10)
-        frappe.log_error(
-            f"BioTime Status: {resp.status_code} | Content-Type: {resp.headers.get('Content-Type')}",
-            "BioTime Debug"
-        )
-        frappe.log_error(f"BioTime Payload (first 1k chars):\n{resp.text[:1000]}", "BioTime Debug")
-
-        if resp.status_code != 200:
-            frappe.log_error(f"Unexpected HTTP {resp.status_code}", "BioTime Sync")
-            return
-
+    while url:
         try:
-            payload = resp.json()
-        except Exception as e:
-            frappe.log_error(f" JSON parse error: {e}", "BioTime Sync")
-            return
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "BioTime Sync Error")
+            break
 
-        logs = payload.get("data", [])
-        frappe.log_error(f"Logs fetched: {len(logs)}", "BioTime Debug")
-        if not logs:
-            frappe.log_error(" No logs found in payload", "BioTime Sync")
-            return
+        rows = data.get("data", [])
+        frappe.log_error(f"Fetched {len(rows)} rows from {url}", "BioTime Debug")
 
-        for log in logs:
-            emp_code       = log.get("emp_code")
-            punch_time_str = log.get("punch_time")
-            punch_state    = log.get("punch_state")
-            terminal_sn    = log.get("terminal_sn") or "BioTime"
+        for row in rows:
+            emp_code = row.get("emp_code")
+            punch_time = row.get("punch_time")
+            punch_state_display = row.get("punch_state_display")
+            upload_time = row.get("upload_time")
 
-            frappe.log_error(f"Processing log: emp_code={emp_code}, punch_time={punch_time_str}, state={punch_state}", "BioTime Debug")
-
-            log_type = "IN" if punch_state == "0" else "OUT"
-
-            try:
-                dt = parse(punch_time_str)
-                punch_time = dt.replace(tzinfo=None, microsecond=0)
-            except Exception as e:
-                frappe.log_error(f"Time parse error for '{punch_time_str}': {e}", "BioTime Sync")
+            if not (emp_code and punch_time and punch_state_display and upload_time):
+                skipped_count += 1
                 continue
 
-            frappe.log_error(f"Looking up Employee for emp_code={emp_code}", "BioTime Debug")
-            employee = frappe.db.get_value("Employee", {"employee": emp_code}, "name")
-            frappe.log_error(f"Employee found: {employee}", "BioTime Debug")
-
+            employee = frappe.db.get_value("Employee", {"biotime_emp_code": emp_code}, "name")
             if not employee:
-                frappe.log_error(f"No Employee found for emp_code={emp_code}", "BioTime Sync")
+                skipped_count += 1
                 continue
 
-            exists = frappe.db.exists("Employee Checkin", {"employee": employee, "time": punch_time})
-            frappe.log_error(f"Duplicate check for {employee}@{punch_time}: exists={exists}", "BioTime Debug")
-            if exists:
-                frappe.log_error(f" Duplicate skipped for {employee}@{punch_time}", "BioTime Sync")
-                continue
+            punch_dt = get_datetime(punch_time)
+            upload_dt = parser.isoparse(upload_time)
+
+            if employee not in shift_tz_cache:
+                _, shift_location = get_shift_info(employee)
+                shift_tz_cache[employee] = get_shift_tz_for_location(shift_location)
+            tz = shift_tz_cache[employee]
+
+            if punch_dt.tzinfo is None:
+                punch_dt = tz.localize(punch_dt)
+
+            local_date = punch_dt.date()
+
+            # Store punches with upload_time
+            employee_punches[(employee, local_date)][punch_state_display].append({
+                "punch_dt": punch_dt,
+                "upload_time": upload_dt
+            })
+
+        url = data.get("next")
+
+    # Insert latest punches based on upload_time
+    for (employee, local_date), punches in employee_punches.items():
+        employee_full_name = frappe.db.get_value("Employee", employee, "employee_name") or ""
+        tz = shift_tz_cache.get(employee, pytz.UTC)
+        local_start = datetime(local_date.year, local_date.month, local_date.day, 0, 0, 0)
+        local_end = local_start + timedelta(days=1)
+
+        if punches["Check In"]:
+            last_checkin_data = max(punches["Check In"], key=lambda x: x["upload_time"])
+            last_checkin = last_checkin_data["punch_dt"]
+            log_type = get_log_type(employee, last_checkin, "Check In")
+
+            frappe.db.sql("""
+                DELETE FROM `tabEmployee Checkin`
+                WHERE employee=%s AND device_id='BioTime'
+                AND log_type IN ('IN','Late Entry') AND time BETWEEN %s AND %s
+            """, (employee, local_start, local_end))
+            frappe.db.commit()
 
             try:
-                checkin = frappe.get_doc({
+                frappe.get_doc({
                     "doctype": "Employee Checkin",
                     "employee": employee,
-                    "time": punch_time,
+                    "employee_name": employee_full_name,
+                    "time": last_checkin,
                     "log_type": log_type,
-                    "device_id": terminal_sn
-                })
-                checkin.insert(ignore_permissions=True)
+                    "device_id": "BioTime",
+                }).insert(ignore_permissions=True)
                 frappe.db.commit()
-                frappe.log_error(f"Inserted {log_type} for {employee} @ {punch_time}", "BioTime Sync")
-            except Exception as e:
-                frappe.log_error(f" Insert failed for {emp_code}@{punch_time}: {e}", "BioTime Sync")
+                inserted_count += 1
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Check In {employee}")
+                skipped_count += 1
 
-    except Exception as e:
-        frappe.log_error(f"Fatal error in sync_biotime_attendance: {str(e)}", "BioTime Sync")
+        if punches["Check Out"]:
+            last_checkout_data = max(punches["Check Out"], key=lambda x: x["upload_time"])
+            last_checkout = last_checkout_data["punch_dt"]
+            log_type = get_log_type(employee, last_checkout, "Check Out")
 
+            frappe.db.sql("""
+                DELETE FROM `tabEmployee Checkin`
+                WHERE employee=%s AND device_id='BioTime'
+                AND log_type IN ('OUT','Early Exit') AND time BETWEEN %s AND %s
+            """, (employee, local_start, local_end))
+            frappe.db.commit()
+
+            try:
+                frappe.get_doc({
+                    "doctype": "Employee Checkin",
+                    "employee": employee,
+                    "employee_name": employee_full_name,
+                    "time": last_checkout,
+                    "log_type": log_type,
+                    "device_id": "BioTime",
+                }).insert(ignore_permissions=True)
+                frappe.db.commit()
+                inserted_count += 1
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Check Out {employee}")
+                skipped_count += 1
+
+    return f"Sync completed. Inserted: {inserted_count}, Skipped: {skipped_count}"

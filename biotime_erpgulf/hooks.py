@@ -48,8 +48,8 @@ required_apps = ["hrms"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 doctype_list_js = {
-    "Employee Checkin": "public/js/employee_checkin.js"
-}
+    "Employee Checkin": "public/js/employee_checkin.js",
+    "Employee": "public/js/employee.js"}
 
 
 # Svg Icons
@@ -137,6 +137,11 @@ doctype_list_js = {
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+
+
+
+
+
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -149,13 +154,48 @@ doctype_list_js = {
 # 	}
 # }
 
+# doc_events = {
+#     "Shift Assignment": {
+#         "on_update": "biotime_erpgulf.shift.sync_default_shift",
+#         "after_submit": "biotime_erpgulf.shift.sync_default_shift"
+#     }
+# }
+
+
+# hooks.py
+# doc_events = {
+#     "Shift Assignment": {
+#         "on_submit": "biotime_erpgulf.shift.update_employee_default_shift",
+#         "on_cancel": "biotime_erpgulf.shift.update_employee_default_shift"
+    
+#     },
+#     # "Attendance": {
+#     #     "before_save": "biotime_erpgulf.biotime_erpgulf.hr_overrides.before_save"
+#     # }
+  
+# }
+
+
+
+
+
+
 # Scheduled Tasks
 # ---------------
 scheduler_events = {
     "hourly": [
-        "biotime_erpgulf.attendance.sync_biotime_attendance"
-    ]
+        "biotime_erpgulf.attendance.biotime_attendance",
+        # "biotime_erpgulf.absentees.mark_late_early_bulk"
+    ],
+
+    # "cron": {
+    #     "0 * * * *": [
+    #         "biotime_erpgulf.notification.notify_absent_employees_ui"
+    #     ]
+    # }
 }
+
+
 
 # scheduler_events = {
 # 	"all": [
