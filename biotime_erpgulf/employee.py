@@ -47,7 +47,6 @@ def sync_biotime_employees():
             department = emp.get("department", {}).get("dept_name") if emp.get("department") else ""
             designation = emp.get("position", {}).get("position_name") if emp.get("position") else ""
 
-            # ✅ Map enable_attendance to ERPNext Employee status + relieving_date
             if emp.get("attemployee", {}).get("enable_attendance") is False:
                 erp_status = "Left"
                 relieving_date = getdate(emp.get("update_time")) if emp.get("update_time") else nowdate()
@@ -72,7 +71,7 @@ def sync_biotime_employees():
                 "company": "Harsha2",
                 "salary_currency": "SAR",
                 "status": erp_status,
-                "relieving_date": relieving_date,   # ✅ new field
+                "relieving_date": relieving_date,   
                 "naming_series": "HR-EMP-",
                 "biotime_emp_code": emp_code
             }
