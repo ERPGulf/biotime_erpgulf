@@ -9,7 +9,6 @@ def execute():
 
 @frappe.whitelist()
 def sync_biotime_employees():
-    frappe.log_error("BioTime Employee Sync started", "BioTime Sync")
 
     try:
         settings = frappe.get_single("BioTime Settings")
@@ -54,6 +53,9 @@ def sync_biotime_employees():
                 erp_status = "Active"
                 relieving_date = None
 
+
+            default_company = frappe.db.get_single_value("Global Defaults", "default_company")
+
             employee_doc = {
                 "doctype": "Employee",
                 "employee_name": full_name,
@@ -68,8 +70,9 @@ def sync_biotime_employees():
                 "prefered_contact_email": emp.get("email") or "",
                 "mobile_no": emp.get("mobile") or "",
                 "nationality": emp.get("national") or "",
-                "company": "Harsha2",
-                "salary_currency": "SAR",
+                # "company": "Harsha2",
+                "company": default_company,
+                # "salary_currency": "SAR",
                 "status": erp_status,
                 "relieving_date": relieving_date,   
                 "naming_series": "HR-EMP-",
