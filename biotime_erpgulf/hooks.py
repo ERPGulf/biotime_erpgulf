@@ -154,26 +154,7 @@ doctype_list_js = {
 # 	}
 # }
 
-# doc_events = {
-#     "Shift Assignment": {
-#         "on_update": "biotime_erpgulf.shift.sync_default_shift",
-#         "after_submit": "biotime_erpgulf.shift.sync_default_shift"
-#     }
-# }
 
-
-# hooks.py
-# doc_events = {
-#     "Shift Assignment": {
-#         "on_submit": "biotime_erpgulf.shift.update_employee_default_shift",
-#         "on_cancel": "biotime_erpgulf.shift.update_employee_default_shift"
-    
-#     },
-#     # "Attendance": {
-#     #     "before_save": "biotime_erpgulf.biotime_erpgulf.hr_overrides.before_save"
-#     # }
-  
-# }
 
 
 
@@ -185,16 +166,18 @@ doctype_list_js = {
 scheduler_events = {
     "hourly": [
         "biotime_erpgulf.attendance.biotime_attendance",
-        # "biotime_erpgulf.absentees.mark_late_early_bulk"
+       
     ],
 
-    # "cron": {
-    #     "0 * * * *": [
-    #         "biotime_erpgulf.notification.notify_absent_employees_ui"
-    #     ]
-    # }
 }
 
+# scheduler_events = {
+#     "cron": {
+#         "*/5 * * * *": [
+#             "biotime_erpgulf.attendance.biotime_attendance"
+#         ]
+#     }
+# }
 
 
 # scheduler_events = {
