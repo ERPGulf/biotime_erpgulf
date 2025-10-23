@@ -1,10 +1,10 @@
 [
  {
-  "biotime_token": "",
-  "biotime_url": "",
+  "biotime_token": "1983169f976891dfa54846fd32437a7708d23af7",
+  "biotime_url": "http://172.210.156.51:80/",
   "docstatus": 0,
   "doctype": "BioTime Settings",
-  "modified": "2025-09-07 15:39:47.825925",
+  "modified": "2025-10-21 17:48:44.940425",
   "name": "BioTime Settings"
  }
 ]
