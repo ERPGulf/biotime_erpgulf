@@ -63,6 +63,30 @@ def get_log_type(employee, punch_time, punch_state_display):
         return "OUT"
     return "IN"
 
+
+def update_employee_custom_in(employee, punch_state_display, punch_time):
+ 
+    if not employee or not punch_state_display or not punch_time:
+        return None
+
+    current_status = frappe.db.get_value("Employee", employee, "custom_in") or 0
+
+    psd_lower = str(punch_state_display).lower()
+    if psd_lower in ["check in", "checkin"]:
+        new_status = 1
+    elif psd_lower in ["check out", "checkout"]:
+        new_status = 0
+    else:
+        new_status = 0 if current_status else 1
+
+    frappe.db.set_value("Employee", employee, "custom_in", new_status)
+    frappe.db.commit()
+
+    if new_status == 1:
+        return get_log_type(employee, punch_time, "Check In")
+    else:
+        return get_log_type(employee, punch_time, "Check Out")
+
 @frappe.whitelist()
 def biotime_attendance():
     frappe.msgprint("Starting BioTime Sync...")
@@ -77,7 +101,7 @@ def biotime_attendance():
 
     inserted_count = 0
     skipped_count = 0
-    employee_punches = defaultdict(lambda: {"Check In": [], "Check Out": []})
+    employee_punches = defaultdict(lambda: defaultdict(list)) 
 
     while url:
         try:
@@ -106,8 +130,8 @@ def biotime_attendance():
                 skipped_count += 1
                 continue
 
-            punch_dt = get_datetime(punch_time)  # naive datetime
-            upload_dt = get_datetime(upload_time)  # naive datetime
+            punch_dt = get_datetime(punch_time)  
+            upload_dt = get_datetime(upload_time)  
 
             local_date = punch_dt.date()
 
@@ -118,24 +142,29 @@ def biotime_attendance():
 
         url = data.get("next")
 
-    # Insert only latest punches
-    for (employee, local_date), punches in employee_punches.items():
+    for (employee, local_date), punches_by_type in employee_punches.items():
         employee_name = frappe.db.get_value("Employee", employee, "employee_name") or ""
         local_start = datetime(local_date.year, local_date.month, local_date.day, 0, 0, 0)
         local_end = local_start + timedelta(days=1)
 
-        # Check In
-        if punches["Check In"]:
-            last_checkin_data = max(punches["Check In"], key=lambda x: x["upload_time"])
-            last_checkin = last_checkin_data["punch_dt"]
-            log_type = get_log_type(employee, last_checkin, "Check In")
+        for punch_state_display, punch_list in punches_by_type.items():
+            last_punch_data = max(punch_list, key=lambda x: x["upload_time"])
+            last_punch = last_punch_data["punch_dt"]
 
-            # Delete older punches
+            log_type = update_employee_custom_in(employee, punch_state_display, last_punch)
+
+            if log_type in ["IN", "Late Entry"]:
+                delete_types = ("IN", "Late Entry")
+            elif log_type in ["OUT", "Early Exit"]:
+                delete_types = ("OUT", "Early Exit")
+            else:
+                delete_types = (log_type,)
+
             frappe.db.sql("""
                 DELETE FROM `tabEmployee Checkin`
                 WHERE employee=%s AND device_id='BioTime'
-                AND log_type IN ('IN','Late Entry') AND time BETWEEN %s AND %s
-            """, (employee, local_start, local_end))
+                AND log_type IN %s AND time BETWEEN %s AND %s
+            """, (employee, delete_types, local_start, local_end))
             frappe.db.commit()
 
             try:
@@ -143,43 +172,14 @@ def biotime_attendance():
                     "doctype": "Employee Checkin",
                     "employee": employee,
                     "employee_name": employee_name,
-                    "time": last_checkin,
+                    "time": last_punch,
                     "log_type": log_type,
                     "device_id": "BioTime"
                 }).insert(ignore_permissions=True)
                 frappe.db.commit()
                 inserted_count += 1
             except Exception:
-                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Check In {employee}")
-                skipped_count += 1
-
-        # Check Out
-        if punches["Check Out"]:
-            last_checkout_data = max(punches["Check Out"], key=lambda x: x["upload_time"])
-            last_checkout = last_checkout_data["punch_dt"]
-            log_type = get_log_type(employee, last_checkout, "Check Out")
-
-            # Delete older punches
-            frappe.db.sql("""
-                DELETE FROM `tabEmployee Checkin`
-                WHERE employee=%s AND device_id='BioTime'
-                AND log_type IN ('OUT','Early Exit') AND time BETWEEN %s AND %s
-            """, (employee, local_start, local_end))
-            frappe.db.commit()
-
-            try:
-                frappe.get_doc({
-                    "doctype": "Employee Checkin",
-                    "employee": employee,
-                    "employee_name": employee_name,
-                    "time": last_checkout,
-                    "log_type": log_type,
-                    "device_id": "BioTime"
-                }).insert(ignore_permissions=True)
-                frappe.db.commit()
-                inserted_count += 1
-            except Exception:
-                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Check Out {employee}")
+                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - {punch_state_display} {employee}")
                 skipped_count += 1
 
     return f"BioTime Sync completed. Inserted: {inserted_count}, Skipped: {skipped_count}"
