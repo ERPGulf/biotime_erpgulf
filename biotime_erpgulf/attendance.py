@@ -87,11 +87,12 @@ def update_employee_custom_in(employee, punch_state_display, punch_time):
     else:
         return get_log_type(employee, punch_time, "Check Out")
 
+
+
 @frappe.whitelist()
 def biotime_attendance():
-
     settings = frappe.get_single("BioTime Settings")
-    url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
+    base_url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
     token = settings.biotime_token
 
     headers = {
@@ -101,24 +102,22 @@ def biotime_attendance():
 
     inserted_count = 0
     skipped_count = 0
-    employee_punches = defaultdict(lambda: defaultdict(list)) 
+    employee_punches = defaultdict(lambda: defaultdict(list))
+
+    url = base_url
+    page = 1
 
     while url:
         try:
-            response = requests.request(
-                "GET",
-                url=url,
-                headers=headers,
-                timeout=300   
-            )
+            response = requests.get(url, headers=headers, timeout=300)
             response.raise_for_status()
             data = response.json()
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "BioTime Sync Error")
+            frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Page {page}")
             break
 
         rows = data.get("data", [])
-        frappe.log_error(f"Fetched {len(rows)} rows from {url}", "BioTime Debug")
+        frappe.log_error(f"Fetched {len(rows)} rows from {url}", f"BioTime Debug Page {page}")
 
         for row in rows:
             emp_code = row.get("emp_code")
@@ -135,9 +134,8 @@ def biotime_attendance():
                 skipped_count += 1
                 continue
 
-            punch_dt = get_datetime(punch_time)  
-            upload_dt = get_datetime(upload_time)  
-
+            punch_dt = get_datetime(punch_time)
+            upload_dt = get_datetime(upload_time)
             local_date = punch_dt.date()
 
             employee_punches[(employee, local_date)][punch_state_display].append({
@@ -146,6 +144,7 @@ def biotime_attendance():
             })
 
         url = data.get("next")
+        page += 1
 
     for (employee, local_date), punches_by_type in employee_punches.items():
         employee_name = frappe.db.get_value("Employee", employee, "employee_name") or ""
