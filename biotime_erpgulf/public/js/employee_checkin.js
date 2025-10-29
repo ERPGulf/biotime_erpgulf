@@ -5,13 +5,14 @@ frappe.listview_settings['Employee Checkin'] = {
             frappe.call({
                 method: "biotime_erpgulf.attendance.biotime_attendance",
                 callback: function(r) {
-                    if (r.message) {
-                        frappe.msgprint(__('Debug Info: ') + JSON.stringify(r.message, null, 2));
+                    if (r && r.message) {
+                        frappe.msgprint(__('Debug Info: ') + r.message);
                     } else {
-                        frappe.msgprint(__('No data received'));
+                        frappe.msgprint(__('BioTime sync has been queued in background.'));
                     }
                     listview.refresh();
                 }
+
             });
         });
     }

@@ -91,6 +91,17 @@ def update_employee_custom_in(employee, punch_state_display, punch_time):
 
 @frappe.whitelist()
 def biotime_attendance():
+    frappe.enqueue(
+        "biotime_erpgulf.attendance.run_biotime_attendance",
+        queue='long',
+        job_name="BioTime Sync Job"
+    )
+    return {"message": "BioTime sync started in background."}
+    
+
+
+def run_biotime_attendance():
+
     settings = frappe.get_single("BioTime Settings")
     base_url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
     token = settings.biotime_token
