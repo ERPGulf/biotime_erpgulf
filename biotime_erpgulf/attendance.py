@@ -183,14 +183,23 @@ def run_biotime_attendance():
             frappe.db.commit()
 
             try:
-                frappe.get_doc({
+                doc_data = {
                     "doctype": "Employee Checkin",
                     "employee": employee,
                     "employee_name": employee_name,
                     "time": last_punch,
                     "log_type": log_type,
                     "device_id": "BioTime"
-                }).insert(ignore_permissions=True)
+                }
+
+                meta = frappe.get_meta("Employee Checkin")
+                if meta.has_field("latitude"):
+                    doc_data["latitude"] = 0.0
+                if meta.has_field("longitude"):
+                    doc_data["longitude"] = 0.0
+
+                frappe.get_doc(doc_data).insert(ignore_permissions=True)
+
                 frappe.db.commit()
                 inserted_count += 1
             except Exception:
