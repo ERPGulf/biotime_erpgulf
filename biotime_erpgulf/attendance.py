@@ -194,9 +194,9 @@ def run_biotime_attendance():
 
                 meta = frappe.get_meta("Employee Checkin")
                 if meta.has_field("latitude"):
-                    doc_data["latitude"] = 0.0
+                    doc_data["latitude"] = 33.8892265
                 if meta.has_field("longitude"):
-                    doc_data["longitude"] = 0.0
+                    doc_data["longitude"] = 35.5025585
 
                 frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
