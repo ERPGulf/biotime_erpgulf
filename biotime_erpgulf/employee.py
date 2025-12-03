@@ -1,3 +1,5 @@
+
+
 import frappe
 import requests
 from frappe.utils import getdate, nowdate
@@ -25,7 +27,6 @@ def sync_biotime_employees():
         total_fetched = 0
         total_inserted = 0
         total_updated = 0
-
         page = 1
 
         while url:
@@ -34,12 +35,19 @@ def sync_biotime_employees():
                 response.raise_for_status()
                 data = response.json()
             except Exception as req_err:
-                frappe.log_error(f"BioTime Employee Sync Error: {str(req_err)}", "BioTime Sync")
+                frappe.log_error(
+                    title="BioTime Employee Sync Request Error",
+                    message=str(req_err)
+                )
                 break
 
             employees = data.get("data", [])
-            frappe.log_error(f"Page {page}: Fetched {len(employees)} employees", "BioTime Employee Sync")
             total_fetched += len(employees)
+
+            frappe.log_error(
+                title=f"BioTime Sync Page {page}",
+                message=f"Fetched {len(employees)} employees"
+            )
 
             for emp in employees:
                 emp_code = emp.get("emp_code")
@@ -83,35 +91,62 @@ def sync_biotime_employees():
                     "personal_email": personal_email,
                     "company": default_company,
                     "status": erp_status,
-                    "relieving_date": relieving_date,   
+                    "relieving_date": relieving_date,
                     "naming_series": "HR-EMP-",
                     "biotime_emp_code": emp_code
                 }
 
                 try:
                     existing = frappe.db.exists("Employee", {"biotime_emp_code": emp_code})
+
                     if not existing:
                         doc = frappe.get_doc(employee_doc)
                         doc.insert(ignore_permissions=True)
                         total_inserted += 1
-                        frappe.log_error(f"Inserted employee {emp_code} ({full_name})", "BioTime Sync")
+
+                        frappe.log_error(
+                            title=f"Inserted {emp_code}",
+                            message=f"Inserted employee: {emp_code}, Name: {full_name}"
+                        )
+
                     else:
                         doc = frappe.get_doc("Employee", existing)
                         doc.update(employee_doc)
                         doc.save(ignore_permissions=True)
                         total_updated += 1
-                        frappe.log_error(f"Updated employee {emp_code} ({full_name})", "BioTime Sync")
+
+                        frappe.log_error(
+                            title=f"Updated {emp_code}",
+                            message=f"Updated employee: {emp_code}, Name: {full_name}"
+                        )
 
                 except Exception as sync_err:
-                    frappe.log_error(f"Error syncing {emp_code}: {str(sync_err)}", "BioTime Sync")
+                    err_msg = f"Error syncing {emp_code}: {str(sync_err)}"
+                    frappe.log_error(
+                        title="BioTime Employee Sync Error",
+                        message=err_msg
+                    )
 
             url = data.get("next")
             page += 1
 
-        summary = f"BioTime Employee Sync completed. Total fetched: {total_fetched}, Inserted: {total_inserted}, Updated: {total_updated}"
-        frappe.log_error(summary, "BioTime Sync Summary")
+        summary = (
+            f"Employee Sync Completed.\n"
+            f"Total Fetched: {total_fetched}\n"
+            f"Inserted: {total_inserted}\n"
+            f"Updated: {total_updated}"
+        )
+
+        frappe.log_error(
+            title="BioTime Employee Sync Summary",
+            message=summary
+        )
+
         return {"status": "success", "message": summary}
 
     except Exception as e:
-        frappe.log_error(f"Sync failed: {str(e)}", "BioTime Sync")
+        frappe.log_error(
+            title="BioTime Employee Sync Failed",
+            message=str(e)
+        )
         return {"status": "error", "message": str(e)}
