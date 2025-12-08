@@ -4,7 +4,8 @@
   "biotime_url": "",
   "docstatus": 0,
   "doctype": "BioTime Settings",
-  "modified": "2025-10-23 13:25:15.595016",
-  "name": "BioTime Settings"
+  "modified": "2025-12-08 16:48:36.471512",
+  "name": "BioTime Settings",
+  "start_year": 0
  }
 ]

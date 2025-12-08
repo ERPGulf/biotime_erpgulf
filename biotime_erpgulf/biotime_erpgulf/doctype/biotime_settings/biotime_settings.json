@@ -6,7 +6,8 @@
  "engine": "InnoDB",
  "field_order": [
   "biotime_url",
-  "biotime_token"
+  "biotime_token",
+  "start_year"
  ],
  "fields": [
   {
@@ -18,13 +19,18 @@
    "fieldname": "biotime_token",
    "fieldtype": "Data",
    "label": "BioTime Token"
+  },
+  {
+   "fieldname": "start_year",
+   "fieldtype": "Int",
+   "label": "Start Year"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-31 11:48:43.282474",
+ "modified": "2025-12-08 09:51:44.678020",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",

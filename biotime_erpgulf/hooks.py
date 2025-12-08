@@ -277,7 +277,8 @@ scheduler_events = {
 # }
 fixtures = [
     {"dt": "Custom Field", "filters": {"module": "biotime_erpgulf"}},
-    {"dt": "BioTime Settings"}
+    {"dt": "BioTime Settings"},
+    {"dt": "Property Setter", "filters": {"module": "biotime_erpgulf"}}
 ]
 
 # fixtures = [
