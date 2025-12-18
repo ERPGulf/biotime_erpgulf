@@ -7,12 +7,12 @@
   "doctype_or_field": "DocField",
   "field_name": "log_type",
   "is_system_generated": 0,
-  "modified": "2025-12-08 16:48:03.570685",
+  "modified": "2025-12-09 08:00:56.052582",
   "module": "biotime_erpgulf",
   "name": "Employee Checkin-log_type-options",
   "property": "options",
   "property_type": null,
   "row_name": null,
-  "value": "\nIN\nOUT\nLate Entry\nEarly Exit\nin\nout\nlate emtry\nearly exit"
+  "value": "\nIN\nOUT\nLate Entry\nEarly Exit\n"
  }
 ]

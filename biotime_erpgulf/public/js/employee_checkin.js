@@ -11,7 +11,7 @@ frappe.listview_settings['Employee Checkin'] = {
                         JSON.stringify(r.message);
                         frappe.msgprint(__('Debug Info: ') + msg);
                     } else {
-                        frappe.msgprint(__('BioTime sync has been queued in background.'));
+                        frappe.msgprint(__('Sync has been queued in background.'));
                     }
                     listview.refresh();
                 }

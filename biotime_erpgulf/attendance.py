@@ -5,8 +5,8 @@ from collections import defaultdict
 from frappe.utils import get_datetime, get_time
 import pytz
 
+
 def time_diff_in_minutes(time1, time2):
-    """Return absolute difference in minutes between two time/datetime objects"""
     if isinstance(time1, datetime) and isinstance(time2, datetime):
         diff = abs((time1 - time2).total_seconds())
     else:
@@ -15,8 +15,8 @@ def time_diff_in_minutes(time1, time2):
         diff = abs((dt1 - dt2).total_seconds())
     return diff / 60
 
+
 def get_shift_info(employee):
-    """Return latest shift_type and shift_location for employee"""
     sa = frappe.get_all(
         "Shift Assignment",
         filters=[["employee", "=", employee], ["docstatus", "=", 1]],
@@ -26,18 +26,11 @@ def get_shift_info(employee):
     )
     if sa:
         return sa[0].shift_type, sa[0].shift_location
+
     return frappe.db.get_value("Employee", employee, "default_shift"), None
 
-def get_shift_tz_for_location(shift_location):
-    if shift_location == "Beirut, Lebanon":
-        return pytz.timezone("Asia/Beirut")
-    elif shift_location == "Riyadh, Saudi Arabia":
-        return pytz.timezone("Asia/Riyadh")
-    return pytz.UTC
 
 def get_log_type(employee, punch_time, punch_state_display):
-    """Determine log type (IN, OUT, Late Entry, Early Exit considering shift)"""
-    punch_dt = punch_time
 
     shift_type, shift_location = get_shift_info(employee)
     if not shift_type:
@@ -49,43 +42,53 @@ def get_log_type(employee, punch_time, punch_state_display):
     late_grace = int(shift_doc.late_entry_grace_period or 0)
     early_grace = int(shift_doc.early_exit_grace_period or 0)
 
-    punch_time_only = punch_dt.time()
+    punch_time_only = punch_time.time()
 
     if punch_state_display == "Check In":
         diff = time_diff_in_minutes(punch_time_only, start_time)
         if punch_time_only > start_time and diff > late_grace:
             return "Late Entry"
         return "IN"
-    elif punch_state_display == "Check Out":
+
+    if punch_state_display == "Check Out":
         diff = time_diff_in_minutes(end_time, punch_time_only)
         if punch_time_only < end_time and diff > early_grace:
             return "Early Exit"
         return "OUT"
+
     return "IN"
 
 
 def update_employee_custom_in(employee, punch_state_display, punch_time):
- 
-    if not employee or not punch_state_display or not punch_time:
-        return None
 
     current_status = frappe.db.get_value("Employee", employee, "custom_in") or 0
+    psd = punch_state_display.lower()
 
-    psd_lower = str(punch_state_display).lower()
-    if psd_lower in ["check in", "checkin"]:
+    if psd in ("check in", "checkin"):
         new_status = 1
-    elif psd_lower in ["check out", "checkout"]:
+    elif psd in ("check out", "checkout"):
         new_status = 0
     else:
         new_status = 0 if current_status else 1
 
     frappe.db.set_value("Employee", employee, "custom_in", new_status)
-    frappe.db.commit()
 
-    if new_status == 1:
-        return get_log_type(employee, punch_time, "Check In")
-    else:
-        return get_log_type(employee, punch_time, "Check Out")
+    return get_log_type(
+        employee,
+        punch_time,
+        "Check In" if new_status else "Check Out"
+    )
+
+
+def checkin_exists(employee, punch_dt):
+    return frappe.db.exists(
+        "Employee Checkin",
+        {
+            "employee": employee,
+            "time": punch_dt,
+            "device_id": "BioTime"
+        }
+    )
 
 
 
@@ -93,117 +96,128 @@ def update_employee_custom_in(employee, punch_state_display, punch_time):
 def biotime_attendance():
     frappe.enqueue(
         "biotime_erpgulf.attendance.run_biotime_attendance",
-        queue='long',
+        queue="long",
         job_name="BioTime Sync Job"
     )
-    return {"message": "BioTime sync started in background."}
-    
+    return {"message": "BioTime sync started"}
+
 
 
 def run_biotime_attendance():
 
-    settings = frappe.get_single("BioTime Settings")
-    base_url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
-    token = settings.biotime_token
+    import logging
+    logger = frappe.logger("biotime")
 
+    settings = frappe.get_single("BioTime Settings")
+
+    if not settings.start_year:
+        frappe.throw("Start Year is mandatory in BioTime Settings")
+
+    start_datetime = datetime(int(settings.start_year), 1, 1)
+
+    base_url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
     headers = {
-        "Authorization": f"Token {token}",
+        "Authorization": f"Token {settings.biotime_token}",
         "Content-Type": "application/json"
     }
 
-    inserted_count = 0
-    skipped_count = 0
-    employee_punches = defaultdict(lambda: defaultdict(list))
+    params = {
+        "start_time": start_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    inserted = 0
+    skipped = 0
 
     url = base_url
     page = 1
 
+
     while url:
         try:
-            response = requests.get(url, headers=headers, timeout=300)
+            response = requests.get(
+                url,
+                headers=headers,
+                params=params if page == 1 else None,
+                timeout=120
+            )
             response.raise_for_status()
             data = response.json()
         except Exception:
-            frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - Page {page}")
+            logger.exception(f"BioTime fetch failed at page {page}")
             break
 
-        rows = data.get("data", [])
-        frappe.log_error(f"Fetched {len(rows)} rows from {url}", f"BioTime Debug Page {page}")
+        rows = data.get("data") or []
+        if not rows:
+            break
+
+        oldest_punch_dt = get_datetime(rows[-1].get("punch_time"))
+        if oldest_punch_dt < start_datetime:
+            logger.info(
+                f"Stopping pagination at page {page}, "
+                f"oldest punch {oldest_punch_dt}"
+            )
+            break
 
         for row in rows:
             emp_code = row.get("emp_code")
             punch_time = row.get("punch_time")
-            punch_state_display = row.get("punch_state_display")
-            upload_time = row.get("upload_time")
+            punch_state = row.get("punch_state_display")
 
-            if not (emp_code and punch_time and punch_state_display and upload_time):
-                skipped_count += 1
-                continue
-
-            employee = frappe.db.get_value("Employee", {"biotime_emp_code": emp_code}, "name")
-            if not employee:
-                skipped_count += 1
+            if not (emp_code and punch_time and punch_state):
+                skipped += 1
                 continue
 
             punch_dt = get_datetime(punch_time)
-            upload_dt = get_datetime(upload_time)
-            local_date = punch_dt.date()
 
-            employee_punches[(employee, local_date)][punch_state_display].append({
-                "punch_dt": punch_dt,
-                "upload_time": upload_dt
-            })
+            if punch_dt < start_datetime:
+                skipped += 1
+                continue
+
+            employee = frappe.db.get_value(
+                "Employee",
+                {"biotime_emp_code": emp_code},
+                "name"
+            )
+            if not employee:
+                skipped += 1
+                continue
+
+            if checkin_exists(employee, punch_dt):
+                skipped += 1
+                continue
+
+            log_type = update_employee_custom_in(
+                employee,
+                punch_state,
+                punch_dt
+            )
+
+            try:
+                frappe.get_doc({
+                    "doctype": "Employee Checkin",
+                    "employee": employee,
+                    "time": punch_dt,
+                    "log_type": log_type,
+                    "device_id": "BioTime"
+                }).insert(ignore_permissions=True)
+
+                inserted += 1
+
+            except Exception:
+                logger.exception(f"BioTime insert failed for {employee}")
+                skipped += 1
 
         url = data.get("next")
         page += 1
 
-    for (employee, local_date), punches_by_type in employee_punches.items():
-        employee_name = frappe.db.get_value("Employee", employee, "employee_name") or ""
-        local_start = datetime(local_date.year, local_date.month, local_date.day, 0, 0, 0)
-        local_end = local_start + timedelta(days=1)
+        if page > 2000:
+            logger.warning("Pagination stopped due to page limit")
+            break
 
-        for punch_state_display, punch_list in punches_by_type.items():
-            last_punch_data = max(punch_list, key=lambda x: x["upload_time"])
-            last_punch = last_punch_data["punch_dt"]
+    frappe.db.commit()
 
-            log_type = update_employee_custom_in(employee, punch_state_display, last_punch)
+    logger.info(
+        f"BioTime Sync completed. Inserted={inserted}, Skipped={skipped}"
+    )
 
-            if log_type in ["IN", "Late Entry"]:
-                delete_types = ("IN", "Late Entry")
-            elif log_type in ["OUT", "Early Exit"]:
-                delete_types = ("OUT", "Early Exit")
-            else:
-                delete_types = (log_type,)
-
-            frappe.db.sql("""
-                DELETE FROM `tabEmployee Checkin`
-                WHERE employee=%s AND device_id='BioTime'
-                AND log_type IN %s AND time BETWEEN %s AND %s
-            """, (employee, delete_types, local_start, local_end))
-            frappe.db.commit()
-
-            try:
-                doc_data = {
-                    "doctype": "Employee Checkin",
-                    "employee": employee,
-                    "employee_name": employee_name,
-                    "time": last_punch,
-                    "log_type": log_type,
-                    "device_id": "BioTime"
-                }
-
-                meta = frappe.get_meta("Employee Checkin")
-                if meta.has_field("latitude"):
-                    doc_data["latitude"] = 33.8892265
-                if meta.has_field("longitude"):
-                    doc_data["longitude"] = 35.5025585
-
-                frappe.get_doc(doc_data).insert(ignore_permissions=True)
-
-                frappe.db.commit()
-                inserted_count += 1
-            except Exception:
-                frappe.log_error(frappe.get_traceback(), f"BioTime Sync Error - {punch_state_display} {employee}")
-                skipped_count += 1
-
-    return f"BioTime Sync completed. Inserted: {inserted_count}, Skipped: {skipped_count}"
+    return f"BioTime Sync completed. Inserted: {inserted}, Skipped: {skipped}"
