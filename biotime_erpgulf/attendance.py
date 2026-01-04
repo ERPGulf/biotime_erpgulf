@@ -39,7 +39,6 @@ def run_biotime_attendance():
 
     now_dt = now_datetime()
 
-    # --- Determine safe start datetime ---
     if settings.last_synced_datetime:
         start_dt = get_datetime(settings.last_synced_datetime)
         if start_dt > now_dt:
@@ -47,7 +46,6 @@ def run_biotime_attendance():
     else:
         start_dt = datetime(int(settings.start_year), 1, 1)
 
-    # --- 30-day window capped to now ---
     end_dt = start_dt + timedelta(days=30)
     if end_dt > now_dt:
         end_dt = now_dt
@@ -110,7 +108,6 @@ def run_biotime_attendance():
                     skipped += 1
                     continue
 
-                # --- Simple IN / OUT mapping only ---
                 log_type = "IN" if punch_state == "Check In" else "OUT"
 
                 frappe.get_doc(
@@ -134,7 +131,6 @@ def run_biotime_attendance():
         else:
             break
 
-    # --- Save capped last sync datetime ---
     frappe.db.set_value(
         "BioTime Settings",
         None,
