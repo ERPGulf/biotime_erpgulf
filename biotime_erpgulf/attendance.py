@@ -1,62 +1,8 @@
 import requests
 import frappe
 from datetime import datetime, timedelta
-from frappe.utils import get_datetime, get_time
+from frappe.utils import get_datetime, now_datetime
 import traceback
-
-
-
-def time_diff_in_minutes(time1, time2):
-    dt1 = datetime.combine(datetime.today(), time1)
-    dt2 = datetime.combine(datetime.today(), time2)
-    return abs((dt1 - dt2).total_seconds()) / 60
-
-
-def get_shift_info(employee):
-    sa = frappe.get_all(
-        "Shift Assignment",
-        filters={"employee": employee, "docstatus": 1},
-        fields=["shift_type"],
-        order_by="start_date desc",
-        limit=1,
-    )
-    if sa:
-        return sa[0].shift_type
-
-    return frappe.db.get_value("Employee", employee, "default_shift")
-
-
-def get_log_type(employee, punch_dt, punch_state_display):
-    shift_type = get_shift_info(employee)
-
-    if not shift_type:
-        return "IN" if punch_state_display == "Check In" else "OUT"
-
-    shift = frappe.get_doc("Shift Type", shift_type)
-
-    start = get_time(shift.start_time)
-    end = get_time(shift.end_time)
-    late_grace = int(shift.late_entry_grace_period or 0)
-    early_grace = int(shift.early_exit_grace_period or 0)
-
-    punch_time = punch_dt.time()
-
-    if punch_state_display == "Check In":
-        if punch_time > start and time_diff_in_minutes(punch_time, start) > late_grace:
-            return "Late Entry"
-        return "IN"
-
-    if punch_state_display == "Check Out":
-        if punch_time < end and time_diff_in_minutes(end, punch_time) > early_grace:
-            return "Early Exit"
-        return "OUT"
-
-    return "IN"
-
-
-def update_employee_custom_in(employee, punch_state):
-    new_status = 1 if punch_state.lower().startswith("check in") else 0
-    frappe.db.set_value("Employee", employee, "custom_in", new_status)
 
 
 def checkin_exists(employee, punch_dt):
@@ -70,37 +16,47 @@ def checkin_exists(employee, punch_dt):
     )
 
 
-
 @frappe.whitelist()
 def biotime_attendance():
     frappe.enqueue(
         "biotime_erpgulf.attendance.run_biotime_attendance",
         queue="long",
-        job_name="BioTime Monthly Datetime Sync",
+        job_name="BioTime Datetime Sync",
     )
-    return {"message": "BioTime monthly sync started"}
-
+    return {"message": "BioTime sync started"}
 
 
 def run_biotime_attendance():
     logger = frappe.logger("biotime")
 
     try:
-        settings = frappe.get_single("BioTime Settings")  
+        settings = frappe.get_single("BioTime Settings")
     except Exception:
         frappe.throw("BioTime Settings DocType not found")
 
     if not settings.start_year:
         frappe.throw("Start Year is mandatory in BioTime Settings")
 
+    now_dt = now_datetime()
+
+    # --- Determine safe start datetime ---
     if settings.last_synced_datetime:
         start_dt = get_datetime(settings.last_synced_datetime)
+        if start_dt > now_dt:
+            start_dt = now_dt
     else:
         start_dt = datetime(int(settings.start_year), 1, 1)
 
+    # --- 30-day window capped to now ---
     end_dt = start_dt + timedelta(days=30)
+    if end_dt > now_dt:
+        end_dt = now_dt
 
     logger.info(f"BioTime sync window: {start_dt} → {end_dt}")
+
+    if start_dt >= end_dt:
+        logger.info("Nothing to sync. Start datetime >= end datetime.")
+        return "No new data to sync"
 
     base_url = settings.biotime_url.rstrip("/") + "/iclock/api/transactions/"
     headers = {"Authorization": f"Token {settings.biotime_token}"}
@@ -154,7 +110,8 @@ def run_biotime_attendance():
                     skipped += 1
                     continue
 
-                log_type = get_log_type(employee, punch_dt, punch_state)
+                # --- Simple IN / OUT mapping only ---
+                log_type = "IN" if punch_state == "Check In" else "OUT"
 
                 frappe.get_doc(
                     {
@@ -166,7 +123,6 @@ def run_biotime_attendance():
                     }
                 ).insert(ignore_permissions=True)
 
-                update_employee_custom_in(employee, punch_state)
                 inserted += 1
 
             except Exception:
@@ -178,6 +134,7 @@ def run_biotime_attendance():
         else:
             break
 
+    # --- Save capped last sync datetime ---
     frappe.db.set_value(
         "BioTime Settings",
         None,

@@ -1,12 +1,12 @@
 [
  {
-  "biotime_token": "",
-  "biotime_url": "",
+  "biotime_token": "a9c1872903e242582c45903b4f7809e98a166f18",
+  "biotime_url": "http://marinafashion.dyndns.org:8082/",
   "docstatus": 0,
   "doctype": "BioTime Settings",
-  "last_synced_datetime": "",
-  "modified": "2026-01-04 12:20:29.876072",
+  "last_synced_datetime": "2026-01-04T21:00:25.113119",
+  "modified": "2026-01-04 21:00:25.897945",
   "name": "BioTime Settings",
-  "start_year": 0
+  "start_year": 2025
  }
 ]
