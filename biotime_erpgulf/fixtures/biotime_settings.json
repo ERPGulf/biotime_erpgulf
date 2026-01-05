@@ -1,11 +1,11 @@
 [
  {
-  "biotime_token": "",
-  "biotime_url": "",
+  "biotime_token": "137d2d1f8d0a9e778f9c3e263a716ae7eb5a8864",
+  "biotime_url": "http://tasweqq.ddns.net:8081/",
   "docstatus": 0,
   "doctype": "BioTime Settings",
-  "last_synced_datetime": "",
-  "modified": "2026-01-05 12:57:29.618170",
+  "last_synced_datetime": "2026-01-05T12:01:14.802641",
+  "modified": "2026-01-05 13:10:53.287704",
   "name": "BioTime Settings",
   "start_year": 0
  }

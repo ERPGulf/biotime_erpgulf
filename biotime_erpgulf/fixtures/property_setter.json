@@ -1,0 +1,18 @@
+[
+ {
+  "default_value": null,
+  "doc_type": "Employee Checkin",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "log_type",
+  "is_system_generated": 0,
+  "modified": "2026-01-05 14:21:52.125132",
+  "module": "biotime_erpgulf",
+  "name": "Employee Checkin-log_type-options",
+  "property": "options",
+  "property_type": null,
+  "row_name": null,
+  "value": "\nIN\nOUT\nLate Entry\nEarly Exit"
+ }
+]
