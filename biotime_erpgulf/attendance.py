@@ -6,12 +6,16 @@ import traceback
 
 
 def checkin_exists(employee, punch_dt):
+    # Treat any punch within the same minute as duplicate
+    start = punch_dt.replace(second=0, microsecond=0)
+    end = start + timedelta(minutes=1)
+
     return frappe.db.exists(
         "Employee Checkin",
         {
             "employee": employee,
-            "time": punch_dt,
             "device_id": "BioTime",
+            "time": ["between", [start, end]],
         },
     )
 
@@ -104,23 +108,33 @@ def run_biotime_attendance():
                     "name",
                 )
 
-                if not employee or checkin_exists(employee, punch_dt):
+                if not employee:
+                    skipped += 1
+                    continue
+
+                # Prevent duplicates (same minute)
+                if checkin_exists(employee, punch_dt):
                     skipped += 1
                     continue
 
                 log_type = "IN" if punch_state == "Check In" else "OUT"
 
-                frappe.get_doc(
-                    {
-                        "doctype": "Employee Checkin",
-                        "employee": employee,
-                        "time": punch_dt,
-                        "log_type": log_type,
-                        "device_id": "BioTime",
-                    }
-                ).insert(ignore_permissions=True)
+                try:
+                    frappe.get_doc(
+                        {
+                            "doctype": "Employee Checkin",
+                            "employee": employee,
+                            "time": punch_dt,
+                            "log_type": log_type,
+                            "device_id": "BioTime",
+                        }
+                    ).insert(ignore_permissions=True)
 
-                inserted += 1
+                    inserted += 1
+
+                except frappe.UniqueValidationError:
+                    # DB-level duplicate protection
+                    skipped += 1
 
             except Exception:
                 logger.exception("Row insert failed")
@@ -141,6 +155,7 @@ def run_biotime_attendance():
 
     logger.info(f"BioTime sync done. Inserted={inserted}, Skipped={skipped}")
     return f"Inserted={inserted}, Skipped={skipped}"
+
 
 
 # import requests
