@@ -4,7 +4,7 @@
   "biotime_url": "",
   "docstatus": 0,
   "doctype": "BioTime Settings",
-  "last_synced_datetime": "",
+  "last_synced_datetime": null,
   "modified": "2026-01-05 14:48:08.565638",
   "name": "BioTime Settings",
   "start_year": 0
