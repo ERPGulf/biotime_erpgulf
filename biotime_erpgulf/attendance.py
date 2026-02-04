@@ -95,6 +95,7 @@ def run_biotime_attendance():
                 emp_code = row.get("emp_code")
                 punch_time = row.get("punch_time")
                 punch_state = row.get("punch_state_display")
+                area_alias = row.get("area_alias") or None
 
                 if not (emp_code and punch_time and punch_state):
                     skipped += 1
@@ -127,6 +128,7 @@ def run_biotime_attendance():
                             "time": punch_dt,
                             "log_type": log_type,
                             "device_id": "BioTime",
+                            "custom_location_id": area_alias,
                         }
                     ).insert(ignore_permissions=True)
 
