@@ -8,7 +8,8 @@
   "biotime_url",
   "biotime_token",
   "start_year",
-  "last_synced_datetime"
+  "last_synced_datetime",
+  "use_shift_based_attendance_logic"
  ],
  "fields": [
   {
@@ -30,13 +31,19 @@
    "fieldname": "last_synced_datetime",
    "fieldtype": "Datetime",
    "label": "Last Sync Time"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_shift_based_attendance_logic",
+   "fieldtype": "Check",
+   "label": "Use Shift Based Attendance Logic"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-04 12:11:20.890636",
+ "modified": "2026-04-01 10:11:52.667711",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
