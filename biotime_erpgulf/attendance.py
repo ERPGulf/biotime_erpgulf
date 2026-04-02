@@ -68,9 +68,7 @@ def get_log_type(employee, punch_dt, punch_state_display):
     return "IN"
 
 
-def update_employee_custom_in(employee, punch_state):
-    new_status = 1 if punch_state.lower().startswith("check in") else 0
-    frappe.db.set_value("Employee", employee, "custom_in", new_status)
+
 
 
 # separate logics
@@ -146,7 +144,6 @@ def process_shift_based_checkin(row):
         }
     ).insert(ignore_permissions=True)
 
-    update_employee_custom_in(employee, punch_state)
     return "inserted"
 
 
@@ -244,7 +241,7 @@ def run_biotime_attendance():
         "BioTime Settings",
         None,
         "last_synced_datetime",
-        end_dt,
+        end_dt - timedelta(seconds=5),
     )
     frappe.db.commit()
 
