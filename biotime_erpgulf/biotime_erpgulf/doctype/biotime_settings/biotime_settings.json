@@ -5,11 +5,18 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "source_selector_tab",
+  "integration_source",
+  "biotime_tab",
   "biotime_url",
   "biotime_token",
   "start_year",
   "last_synced_datetime",
-  "use_shift_based_attendance_logic"
+  "use_shift_based_attendance_logic",
+  "ubio_alpeta_tab",
+  "ubio_url",
+  "ubio_user_id",
+  "ubio_uuid"
  ],
  "fields": [
   {
@@ -37,13 +44,51 @@
    "fieldname": "use_shift_based_attendance_logic",
    "fieldtype": "Check",
    "label": "Use Shift Based Attendance Logic"
+  },
+  {
+   "fieldname": "biotime_tab",
+   "fieldtype": "Tab Break",
+   "label": "BioTime"
+  },
+  {
+   "fieldname": "ubio_alpeta_tab",
+   "fieldtype": "Tab Break",
+   "label": "UBio Alpeta"
+  },
+  {
+   "fieldname": "ubio_user_id",
+   "fieldtype": "Data",
+   "label": "UBio User ID"
+  },
+  {
+   "fieldname": "ubio_uuid",
+   "fieldtype": "Data",
+   "label": "UBio UUID"
+  },
+  {
+   "fieldname": "ubio_url",
+   "fieldtype": "Data",
+   "label": "UBio URL"
+  },
+  {
+   "fieldname": "source_selector_tab",
+   "fieldtype": "Tab Break",
+   "label": "Source Selector"
+  },
+  {
+   "fieldname": "integration_source",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Integration Source",
+   "options": "\nBioTime\nUBio Alpeta",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-04-01 10:11:52.667711",
+ "modified": "2026-05-19 07:59:42.007616",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
