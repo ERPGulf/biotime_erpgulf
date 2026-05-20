@@ -10,13 +10,18 @@
   "biotime_tab",
   "biotime_url",
   "biotime_token",
+  "use_shift_based_attendance_logic",
+  "column_break_vicc",
   "start_year",
   "last_synced_datetime",
-  "use_shift_based_attendance_logic",
   "ubio_alpeta_tab",
   "ubio_url",
   "ubio_user_id",
-  "ubio_uuid"
+  "ubio_uuid",
+  "column_break_rvlr",
+  "start_date",
+  "end_date",
+  "limit_no_of_records"
  ],
  "fields": [
   {
@@ -82,13 +87,37 @@
    "label": "Integration Source",
    "options": "\nBioTime\nUBio Alpeta",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_vicc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_rvlr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "default": "1",
+   "fieldname": "limit_no_of_records",
+   "fieldtype": "Int",
+   "label": "Limit (No. of Records)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-05-19 07:59:42.007616",
+ "modified": "2026-05-20 11:51:14.309753",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
