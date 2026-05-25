@@ -22,6 +22,9 @@ scheduler_events = {
         "biotime_erpgulf.attendance.biotime_attendance",
        
     ],
+    "daily": [
+        "biotime_erpgulf.ubio_attendance.biotime_attendance",
+    ],
 
 }
 
