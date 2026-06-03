@@ -7,6 +7,7 @@
  "field_order": [
   "source_selector_tab",
   "integration_source",
+  "enable_sync_button_for_employee",
   "biotime_tab",
   "biotime_url",
   "biotime_token",
@@ -111,13 +112,19 @@
    "fieldname": "limit_no_of_records",
    "fieldtype": "Int",
    "label": "Limit (No. of Records)"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_sync_button_for_employee",
+   "fieldtype": "Check",
+   "label": "Enable Sync Button for Employee"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-05-20 11:51:14.309753",
+ "modified": "2026-06-03 10:34:44.239550",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
