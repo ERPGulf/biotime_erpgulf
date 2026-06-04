@@ -86,7 +86,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Integration Source",
-   "options": "\nBioTime\nUBio Alpeta",
+   "options": "\nBioTime\nUBio Alpeta\nAll",
    "reqd": 1
   },
   {
@@ -124,7 +124,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-03 10:34:44.239550",
+ "modified": "2026-06-04 10:46:18.639967",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
