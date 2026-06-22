@@ -2,7 +2,41 @@ import frappe
 import requests
 from frappe.utils import nowdate
 from datetime import datetime
+# from biotime_erpgulf.ubio_attendance import get_ubio_session, clear_ubio_session
 
+
+def get_ubio_session(settings):
+    cache_key = f"ubio_session:{frappe.local.site}"
+    cached = frappe.cache().get_value(cache_key)
+    if cached:
+        return cached
+
+    base_url = settings.ubio_url.rstrip("/")
+
+    response = requests.post(
+        f"{base_url}/v1/login",
+        json={"userId": "1111", "password": "1598753", "userType": 0},
+        headers={"Content-Type": "application/json"},
+        timeout=30
+    )
+    response.raise_for_status()
+
+    extinfo = response.cookies.get("extinfo") or ""
+    new_uuid = response.cookies.get("ucsinfo") or settings.ubio_uuid
+
+    if not extinfo:
+        extinfo = response.json().get("extinfo") or ""
+
+    if not extinfo:
+        raise Exception(f"UBio login succeeded but no extinfo in response: {response.text[:200]}")
+
+    cookie_header = f"extinfo={extinfo}; ucsinfo={new_uuid}"
+    frappe.cache().set_value(cache_key, cookie_header, expires_in_sec=60 * 60 * 8)
+    return cookie_header
+
+
+def clear_ubio_session():
+    frappe.cache().delete_value(f"ubio_session:{frappe.local.site}")
 
 @frappe.whitelist()
 def sync_ubio_employees():
@@ -15,170 +49,103 @@ def sync_ubio_employees():
 
 
 def run_ubio_employee_sync():
+    frappe.db.sql("SET SESSION innodb_lock_wait_timeout = 300")
     logger = frappe.logger("ubio_employee")
 
     try:
         settings = frappe.get_single("BioTime Settings")
         base_url = settings.ubio_url.rstrip("/")
-        employees = {}
-        start_date = str(datetime.strptime(
-            settings.start_date,
-            "%Y-%m-%d"
-        ).strftime("%Y-%m-%d"))
+        start_date = datetime.strptime(settings.start_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+        end_date = datetime.strptime(settings.end_date, "%Y-%m-%d").strftime("%Y-%m-%d")
 
-        end_date = str(datetime.strptime(
-            settings.end_date,
-            "%Y-%m-%d"
-        ).strftime("%Y-%m-%d"))
-        # frappe.log_error("start_date", start_date)
-        # frappe.log_error("end_date", end_date)
-        response = requests.get(
-            f"{base_url}/v1/authLogs",
-            params={
-                "startTime": start_date,
-                "endTime": end_date,
-                "offset": 0,
-                # "limit": 10
-                "limit": settings.limit_no_of_records or 100
-            },
-            headers={
-                # "Cookie": "extinfo=cc846eed53994e5653338f93d057b2c3; ucsinfo=c508047c-b517-4ace-6ff5-66af31f7032c"
-                "Cookie": f"extinfo=cc846eed53994e5653338f93d057b2c3; ucsinfo={settings.ubio_uuid}"
-            },
-            timeout=60
-        )
+        # start_date = str(datetime.strptime(
+        #     settings.start_date, "%Y-%m-%d"
+        # ).strftime("%Y-%m-%d"))
+
+        # end_date = str(datetime.strptime(
+        #     settings.end_date, "%Y-%m-%d"
+        # ).strftime("%Y-%m-%d"))
+
+        # ✅ Auto-login to get fresh session
+        try:
+            cookie_header = get_ubio_session(settings)
+        except Exception as login_err:
+            frappe.log_error(str(login_err), "UBio Login Failed")
+            return {"status": "error", "message": f"Login failed: {str(login_err)}"}
+
+        def fetch_logs(cookie):
+            return requests.get(
+                f"{base_url}/v1/authLogs",
+                params={
+                    "startTime": start_date,
+                    "endTime": end_date,
+                    "offset": 0,
+                    "limit": settings.limit_no_of_records or 100
+                },
+                headers={"Cookie": cookie},
+                timeout=60
+            )
+
+        response = fetch_logs(cookie_header)
+
+        # ✅ If 401 — clear cache and retry with fresh login
+        if response.status_code == 401:
+            clear_ubio_session()
+            cookie_header = get_ubio_session(settings)
+            response = fetch_logs(cookie_header)
+
         data = response.json()
         logs = data.get("AuthLogList", [])
         frappe.log_error("logs", logs)
-        
+
+        inserted = 0
+        skipped = 0
+
         for log in logs:
-
             emp_id = log.get("UserID")
-            emp_name = log.get("UserName")
+            emp_name = (log.get("UserName") or "").strip()
 
-            # skip empty users
-            if not emp_id or not emp_name:
+            if not emp_id:
+                skipped += 1
                 continue
+
+            if not emp_name:
+                emp_name = f"Employee {emp_id}"
 
             existing = frappe.db.exists(
                 "Employee",
-                {"biotime_emp_code": emp_id}
+                {"ubio_emp_code": emp_id}
             )
 
             if not existing:
+                try:
+                    employee = frappe.get_doc({
+                        "doctype": "Employee",
+                        "employee_name": emp_name,
+                        "first_name": emp_name,
+                        "ubio_emp_code": emp_id,
+                        "status": "Active",
+                        "company": frappe.defaults.get_user_default("Company"),
+                        "gender": "Male",
+                        "date_of_birth": "2000-01-01",
+                        "date_of_joining": "2020-01-01",
+                    })
+                    employee.insert(ignore_permissions=True)
+                    frappe.db.commit()
+                    inserted += 1
+                except Exception as e:
+                    frappe.log_error(
+                        f"Failed to insert emp_id={emp_id}: {str(e)}",
+                        "UBio Employee Insert Error"
+                    )
+                    frappe.db.rollback()
+                    skipped += 1
+            else:
+                skipped += 1
 
-                employee = frappe.get_doc({
-                    "doctype": "Employee",
-                    "employee_name": emp_name.strip(),
-                    "first_name": emp_name.strip(),
-                    "biotime_emp_code": emp_id,
-                    "status": "Active",
-                    "company": frappe.defaults.get_user_default("Company"),
-
-                    # mandatory fields
-                    "gender": "Male",
-                    "date_of_birth": "2000-01-01",
-                    "date_of_joining": frappe.utils.nowdate()
-                })
-
-                employee.insert(ignore_permissions=True)
-        
-        # while True:
-            # frappe.log_error("1")
-            # response = requests.get(
-            #     f"{base_url}/v1/authLogs",
-            #     params={
-            #         "startTime": "2020-01-01",
-            #         "endTime": "2026-04-30",
-            #         "offset": offset,
-            #         "limit": limit
-            #     },
-            #     # headers={
-            #     #     "Cookie": f"ucsinfo={settings.ubio_uuid}"
-            #     # },
-            #     headers = {
-            #         "Cookie":"extinfo=cc846eed53994e5653338f93d057b2c3; ucsinfo=7280fecc-72ea-42d5-4d8b-98b97181ee05",
-            #         "Content-Type": "application/json"
-            #     },
-            #     timeout=60
-            # )
-            # frappe.log_error("response",response)
-            # frappe.log_error("Final URL", response.url)
-
-            # response.raise_for_status()
-            # data = response.json()
-
-            # logs = data.get("AuthLogList", [])
-            # frappe.log_error("logs",logs)
-            # total = data.get("Total", {}).get("Count", 0)
-
-            # if not logs:
-            #     break
-            # frappe.log_error("2")
-
-            # for log in logs:
-            #     emp_id = log.get("UserID")
-            #     name = log.get("UserName")
-
-            #     # skip empty users
-            #     if not emp_id:
-            #         continue
-
-            #     if emp_id not in employees:
-            #         employees[emp_id] = name.strip()
-
-            # offset += limit
-            # frappe.log_error("3")
-
-            # logger.info(f"Fetched {offset}/{total}")
-
-            # if offset >= total:
-            #     break
-        # ✅ Create Employees
-        # default_company = frappe.db.get_single_value("Global Defaults", "default_company")
-
-        # inserted = 0
-        # updated = 0
-
-        # for emp_id, full_name in employees.items():
-        #     frappe.log_error("4")
-
-        #     employee_doc = {
-        #         "doctype": "Employee",
-        #         "employee_name": full_name,
-        #         "first_name": full_name,
-        #         "company": default_company,
-        #         "status": "Active",
-        #         "naming_series": "HR-EMP-",
-        #         "biotime_emp_code": emp_id
-        #     }
-
-        #     try:
-        #         existing = frappe.db.exists("Employee", {"biotime_emp_code": emp_id})
-
-        #         if not existing:
-        #             frappe.get_doc(employee_doc).insert(ignore_permissions=True)
-        #             inserted += 1
-        #         else:
-        #             doc = frappe.get_doc("Employee", existing)
-        #             doc.update(employee_doc)
-        #             doc.save(ignore_permissions=True)
-        #             updated += 1
-
-        #     except Exception as e:
-        #         frappe.log_error(
-        #             message=str(e),
-        #             title="UBio Employee Error"
-        #         )
-
-        # summary = f"UBio Sync Done | Inserted: {inserted}, Updated: {updated}"
-
-        # logger.info(summary)
-
-        # return {
-        #     "status": "success",
-        #     "message": summary
-        # }
+        summary = f"UBio Employee Sync Done | Inserted: {inserted}, Skipped: {skipped}"
+        frappe.log_error(summary, "UBio Employee Sync Summary")
+        return {"status": "success", "message": summary}
 
     except Exception as e:
         frappe.log_error(

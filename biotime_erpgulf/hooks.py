@@ -19,11 +19,13 @@ doctype_list_js = {
 
 scheduler_events = {
     "hourly": [
+        "biotime_erpgulf.ubio_attendance.ubio_attendance",
         "biotime_erpgulf.attendance.biotime_attendance",
+        
        
     ],
     "daily": [
-        "biotime_erpgulf.ubio_attendance.biotime_attendance",
+        "biotime_erpgulf.ubio_attendance_processor.process_daily_attendance",
     ],
 
 }
