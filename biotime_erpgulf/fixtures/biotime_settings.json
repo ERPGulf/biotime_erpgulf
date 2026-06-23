@@ -1,21 +1,21 @@
 [
  {
-  "biotime_token": "a9c1872903e242582c45903b4f7809e98a166f18",
-  "biotime_url": "http://marinafashion.dyndns.org:8082",
+  "biotime_token": "",
+  "biotime_url": "",
   "docstatus": 0,
   "doctype": "BioTime Settings",
   "enable_sync_button_for_employee": 1,
-  "end_date": "2026-06-11",
+  "end_date": "",
   "integration_source": "All",
-  "last_synced_datetime": "2026-06-11T18:00:15.682584",
+  "last_synced_datetime": "",
   "limit_no_of_records": 700,
-  "modified": "2026-06-11 18:00:21.198458",
+  "modified": "2026-06-23 00:00:00.000000",
   "name": "BioTime Settings",
-  "start_date": "2020-02-05",
+  "start_date": "",
   "start_year": 2026,
-  "ubio_url": "http://207.180.239.87:9004/",
-  "ubio_user_id": "1111",
-  "ubio_uuid": "e6668d59-b77e-4ad8-696e-a283ef07566",
+  "ubio_url": "",
+  "ubio_user_id": "",
+  "ubio_uuid": "",
   "use_shift_based_attendance_logic": 0
  }
 ]
