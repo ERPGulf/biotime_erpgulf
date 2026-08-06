@@ -47,18 +47,15 @@ def clear_ubio_session():
 #     return set()
 
 
-def checkin_exists(employee, punch_dt):
-    start = punch_dt.replace(second=0, microsecond=0)
-    end = start + timedelta(minutes=1)
-    return frappe.db.exists(
-        "Employee Checkin",
-        {
-            "employee": employee,
-            "device_id": "UBio Alpeta",
-            "time": ["between", [start, end]],
-        },
-    )
+def checkin_exists(employee, punch_dt, log_type, area_alias=None):
 
+    filters = {
+        "employee": employee,
+        "device_id": "UBio Alpeta",
+        "log_type": log_type,
+        "time": punch_dt,
+    }
+    return frappe.db.exists("Employee Checkin", filters)
 
 def process_simple_checkin(row):
     emp_code = row.get("emp_code")
@@ -79,10 +76,10 @@ def process_simple_checkin(row):
     if not employee:
         return "skipped"
 
-    if checkin_exists(employee, punch_dt):
+    log_type = "IN" if punch_state == "Check In" else "OUT"
+    if checkin_exists(employee, punch_dt, log_type):
         return "skipped"
 
-    log_type = "IN" if punch_state == "Check In" else "OUT"
 
     frappe.get_doc({
         "doctype": "Employee Checkin",
