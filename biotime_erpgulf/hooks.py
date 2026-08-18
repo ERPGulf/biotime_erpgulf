@@ -13,7 +13,8 @@ required_apps = ["hrms"]
 
 doctype_list_js = {
     "Employee Checkin": "public/js/employee_checkin.js",
-    "Employee": "public/js/employee.js"}
+    "Employee": "public/js/employee.js"
+}
 
 
 
