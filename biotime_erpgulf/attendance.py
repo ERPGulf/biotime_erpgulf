@@ -5,17 +5,11 @@ from frappe.utils import get_datetime, get_time, now_datetime
 
 
 
-def checkin_exists(employee, punch_dt):
-    # Treat any punch within the same minute as duplicate
-    start = punch_dt.replace(second=0, microsecond=0)
-    end = start + timedelta(minutes=1)
-
+def checkin_exists(biotime_id):
     return frappe.db.exists(
         "Employee Checkin",
         {
-            "employee": employee,
-            "device_id": "BioTime",
-            "time": ["between", [start, end]],
+            "custom_biotime_transaction_id": str(biotime_id)
         },
     )
 
@@ -78,8 +72,9 @@ def process_simple_checkin(row):
     punch_time = row.get("punch_time")
     punch_state = row.get("punch_state_display")
     area_alias = row.get("area_alias") or None
+    biotime_id = row.get("id")
 
-    if not (emp_code and punch_time and punch_state):
+    if not (emp_code and punch_time and punch_state and biotime_id):
         return "skipped"
 
     punch_dt = get_datetime(punch_time)
@@ -89,10 +84,11 @@ def process_simple_checkin(row):
         {"biotime_emp_code": emp_code},
         "name",
     )
+
     if not employee:
         return "skipped"
 
-    if checkin_exists(employee, punch_dt):
+    if checkin_exists(biotime_id):
         return "skipped"
 
     log_type = "IN" if punch_state == "Check In" else "OUT"
@@ -105,6 +101,7 @@ def process_simple_checkin(row):
             "log_type": log_type,
             "device_id": "BioTime",
             "custom_location_id": area_alias,
+            "custom_biotime_transaction_id": str(biotime_id),
         }
     ).insert(ignore_permissions=True)
 
@@ -115,8 +112,9 @@ def process_shift_based_checkin(row):
     emp_code = row.get("emp_code")
     punch_time = row.get("punch_time")
     punch_state = row.get("punch_state_display")
+    biotime_id = row.get("id")
 
-    if not (emp_code and punch_time and punch_state):
+    if not (emp_code and punch_time and punch_state and biotime_id):
         return "skipped"
 
     punch_dt = get_datetime(punch_time)
@@ -126,10 +124,11 @@ def process_shift_based_checkin(row):
         {"biotime_emp_code": emp_code},
         "name",
     )
+
     if not employee:
         return "skipped"
 
-    if checkin_exists(employee, punch_dt):
+    if checkin_exists(biotime_id):
         return "skipped"
 
     log_type = get_log_type(employee, punch_dt, punch_state)
@@ -141,6 +140,7 @@ def process_shift_based_checkin(row):
             "time": punch_dt,
             "log_type": log_type,
             "device_id": "BioTime",
+            "custom_biotime_transaction_id": str(biotime_id),
         }
     ).insert(ignore_permissions=True)
 
