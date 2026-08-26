@@ -83,6 +83,17 @@ def mark_attendance_from_checkins(employee, attendance_date):
 
     attendance.insert(ignore_permissions=True, ignore_links=True)
     attendance.submit()
+    
+    for row in checkins:
+        frappe.db.set_value(
+            "Employee Checkin",
+            row.name,
+            "attendance",
+            attendance.name,
+            update_modified=False,
+        )
+
+    frappe.db.commit()
 
     return "attendance_marked"
 
@@ -174,7 +185,8 @@ def mark_attendance_from_checkins(employee, attendance_date):
 
 def process_daily_attendance():
     from frappe.utils import today, add_days, getdate, date_diff
-
+    if not frappe.db.get_single_value("BioTime Settings", "mark_auto_attendance"):
+        return
     yesterday = getdate(add_days(today(), -1))
     cache_key = f"last_attendance_sync_date:{frappe.local.site}"
     last_sync = frappe.cache().get_value(cache_key)

@@ -19,6 +19,7 @@
   "ubio_url",
   "ubio_user_id",
   "ubio_uuid",
+  "mark_auto_attendance",
   "column_break_rvlr",
   "start_date",
   "end_date",
@@ -118,13 +119,19 @@
    "fieldname": "enable_sync_button_for_employee",
    "fieldtype": "Check",
    "label": "Enable Sync Button for Employee"
+  },
+  {
+   "default": "0",
+   "fieldname": "mark_auto_attendance",
+   "fieldtype": "Check",
+   "label": "Mark Auto Attendance"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-04 10:46:18.639967",
+ "modified": "2026-08-26 16:18:47.134073",
  "modified_by": "Administrator",
  "module": "biotime_erpgulf",
  "name": "BioTime Settings",
