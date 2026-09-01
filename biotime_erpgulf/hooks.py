@@ -16,6 +16,10 @@ doctype_list_js = {
     "Employee": "public/js/employee.js"
 }
 
+doctype_js = {
+    "Salary Structure Assignment": "public/js/salary_structure_assignment.js"
+}
+
 
 
 scheduler_events = {
