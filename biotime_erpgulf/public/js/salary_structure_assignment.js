@@ -11,8 +11,8 @@ frappe.ui.form.on('Salary Structure Assignment', {
             },
             callback: function (r) {
                 if (!r.exc && r.message) {
-                    frm.set_value('custom_house_allowance_', r.message.housing_allowance);
-                    frm.set_value('custom_transportation_allowance__', r.message.transportation_allowance);
+                    frm.set_value('custom_house_allowance', r.message.housing_allowance);
+                    frm.set_value('custom_transportation_allowance', r.message.transportation_allowance);
                 }
             }
         });
